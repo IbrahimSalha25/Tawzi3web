@@ -20,10 +20,16 @@ def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
 # Google Sheet credentials and details
 SPREADSHEET_NAME = 'Tawzi3 Requests 2025'
 SHEET_NAME = 'sheet1'
-CREDENTIALS_FILE = 'tawzi3googlesheetname.json'
 
 # Connect to the Google Sheet
-sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+try:
+    # Cloud (Streamlit secrets)
+    CREDENTIALS_FILE = st.secrets["google sheet"]
+    sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+except Exception:
+    # Local file
+    CREDENTIALS_FILE = 'tawzi3googlesheetname.json'
+    sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
 
 
 def read_data():
@@ -242,17 +248,12 @@ def show_contact_section():
                 st.balloons()
 
     with col2:
-        st.markdown("""
-        <div class="form-container">
-            <h3>📧 معلومات التواصل</h3>
-            <p><strong>📧 البريد الإلكتروني:</strong> tawzi3.app@gmail.com</p>
-            <p><strong>📱 واتساب:</strong> +972-XXX-XXXXXX</p>
-            <p><strong>📍 الموقع:</strong> غزة - فلسطين</p>
-            <p><strong>🌐 وسائل التواصل:</strong></p>
-            <p>• فيسبوك: /Tawzi3App</p>
-            <p>• تليجرام: @Tawzi3App</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("""البريد الإلكتروني: ibrahimsalha19@gmail.com
+                    المطور: إبراهيم عاطف محمد صالحة
+                    جوال : 0595451125
+                    الموقع: غزة، فلسطين
+                    رسالتنا: نهدف إلى توفير هذا النظام بشكل مجاني أو بتكلفة رمزية للمبادرات والجمعيات غير الربحية في غزة، للمساهمة في تخفيف الأعباء وتسهيل أعمال الخير.
+                    """)
 
 
 # App
