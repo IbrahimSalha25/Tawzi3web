@@ -1,474 +1,223 @@
 import streamlit as st
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
-from datetime import datetime
-import base64
-from io import BytesIO
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# إعداد الصفحة
+
+# Authenticate and connect to Google Sheets
+def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
+    scope = ["https://spreadsheets.google.com/feeds",
+             'https://www.googleapis.com/auth/spreadsheets',
+             "https://www.googleapis.com/auth/drive.file",
+             "https://www.googleapis.com/auth/drive"]
+
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scope)
+    client = gspread.authorize(credentials)
+    spreadsheet = client.open(spreadsheet_name)
+    return spreadsheet.worksheet(sheet_name)  # Access specific sheet by name
+
+
+# Google Sheet credentials and details
+SPREADSHEET_NAME = 'Tawzi3 Requests 2025'
+SHEET_NAME = 'sheet1'
+CREDENTIALS_FILE = 'tawzi3googlesheetname.json'
+
+# Connect to the Google Sheet
+sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+
+
+def read_data():
+    data = sheet_by_name.get_all_records()  # Get all records from Google Sheet
+    return pd.DataFrame(data)
+
+
+# Add Data to Google Sheets
+def add_data(row):
+    sheet_by_name.append_row(row)  # Append the row to the Google Sheet
+
+
 st.set_page_config(
-    page_title="Tawzi3 - نظام توزيع المساعدات الذكي",
-    page_icon="📦",
+    page_title="Tawzi3 - نظام توزيع",
+    page_icon="assets/images/icon.ico",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# إعداد الـ CSS المخصص
+# تطبيق اتجاه الصفحة من اليمين لليسار (RTL) باستخدام CSS بسيط
 st.markdown("""
 <style>
-    /* تحسين الخط العربي */
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap');
-
-    .main {
+    /* تطبيق الخط والاتجاه على كامل التطبيق */
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+    html, body, [class*="st-"],h1{
         direction: rtl;
         font-family: 'Tajawal', sans-serif;
     }
-
-    /* تحسين العناوين */
-    .title-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-
-    /* كارد المميزات */
-    .feature-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        margin-bottom: 1rem;
-        border-right: 4px solid #667eea;
-        transition: transform 0.3s ease;
-    }
-
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    }
-
-    /* أزرار تفاعلية */
-    .custom-button {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 25px;
-        font-size: 1.1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: inline-block;
-        text-decoration: none;
-        margin: 0.5rem;
-    }
-
-    .custom-button:hover {
-        background: linear-gradient(45deg, #764ba2, #667eea);
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-
-    /* إحصائيات */
-    .stats-container {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        margin: 2rem 0;
-    }
-
-    .stat-number {
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 0;
-    }
-
-    .stat-label {
-        font-size: 1.2rem;
-        margin-top: 0.5rem;
-    }
-
-    /* قسم الفوائد */
-    .benefits-section {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin: 2rem 0;
-    }
-
-    /* تحسين الشريط الجانبي */
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-    }
-
-    /* تنسيق الأيقونات */
-    .icon-large {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-    }
-
-    /* تحسين الجداول */
-    .dataframe {
-        border-radius: 10px;
-        overflow: hidden;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-
-    /* أنيميشن للعناصر */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .animate-fade-in {
-        animation: fadeInUp 0.6s ease-out;
-    }
-
-    /* تحسين النماذج */
-    .form-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        margin: 2rem 0;
-    }
-
-    /* Footer */
-    .footer {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        text-align: center;
-        margin-top: 3rem;
-    }
-
-    /* إخفاء العناصر غير المرغوبة */
-    #MainMenu {visibility: hidden;}
-    .stDeployButton {display:none;}
-    footer {visibility: hidden;}
-    .stApp > header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
 
-# الوظائف المساعدة
-def create_feature_card(icon, title, description):
-    return f"""
-    <div class="feature-card animate-fade-in">
-        <div style="text-align: center;">
-            <div class="icon-large">{icon}</div>
-            <h3 style="color: #667eea; margin-bottom: 1rem;">{title}</h3>
-            <p style="color: #666; line-height: 1.6;">{description}</p>
-        </div>
-    </div>
-    """
+def show_main_section():
+    st.info("""
+    نحن فريق مستقل من غزة، نؤمن بقوة التكنولوجيا في تحسين حياة الناس. 
+    قمنا بتطوير نظام **"توزيع"** لمساعدة المؤسسات الإنسانية والجهات المانحة على إدارة وتوزيع المساعدات بكرامة وسهولة.
+    """)
 
-
-def create_stats_card(number, label, color):
-    return f"""
-    <div style="background: {color}; padding: 1.5rem; border-radius: 10px; text-align: center; color: white; margin: 0.5rem;">
-        <div class="stat-number">{number}</div>
-        <div class="stat-label">{label}</div>
-    </div>
-    """
-
-
-# الصفحة الرئيسية
-def main_page():
-    # العنوان الرئيسي
-    st.markdown("""
-    <div class="title-header animate-fade-in">
-        <h1 style="margin: 0; font-size: 3rem;">🟩 برنامج Tawzi3</h1>
-        <p style="margin: 0.5rem 0 0 0; font-size: 1.3rem; opacity: 0.9;">نظام توزيع المساعدات الذكي</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # قسم من نحن
-    st.markdown("## 💬 من نحن؟")
-    st.markdown("""
-    <div class="feature-card animate-fade-in">
-        <p style="font-size: 1.1rem; line-height: 1.8; color: #444;">
-        مرحبًا! نحن فريق مستقل من غزة، نؤمن بأن التقنية قادرة على تحسين حياة الناس. 
-        طورنا برنامج <strong>Tawzi3</strong> ليساعد المؤسسات الخيرية والجهات المانحة في 
-        <strong>توزيع المساعدات بكرامة وسهولة</strong>.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # قسم ما هو Tawzi3
-    st.markdown("## 🎯 ما هو Tawzi3؟")
-    st.markdown("""
-    <div class="feature-card animate-fade-in">
-        <p style="font-size: 1.1rem; line-height: 1.8; color: #444;">
-        <strong>Tawzi3</strong> هو نظام سطح مكتب ذكي يساعد المؤسسات في تنظيم وتوزيع المساعدات 
-        (طرود غذائية، ملابس، مساعدات نقدية...) بشكل منظم، عادل، وسريع، 
-        <strong>دون الحاجة لاتصال بالإنترنت</strong>.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # إحصائيات مثيرة للإعجاب
-    st.markdown("### 📊 نتائج مذهلة")
+    st.markdown("#### 📊 نتائج مثبتة في لمحة")
     col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown(create_stats_card("5", "ثوانٍ", "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
-                    unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-top: 0.5rem;'>لكل عملية توزيع</p>", unsafe_allow_html=True)
-
-    with col2:
-        st.markdown(create_stats_card("100%", "أمان", "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"),
-                    unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-top: 0.5rem;'>بيانات محلية آمنة</p>", unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(create_stats_card("0", "تكرار", "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)"),
-                    unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-top: 0.5rem;'>منع التكرار تلقائيًا</p>",
-                    unsafe_allow_html=True)
-
-    with col4:
-        st.markdown(create_stats_card("∞", "سعة", "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)"),
-                    unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-top: 0.5rem;'>عدد لا محدود من المستفيدين</p>",
-                    unsafe_allow_html=True)
+    col1.metric(label="🚀 سرعة التسليم", value="5 ثوانٍ", delta="للعملية الواحدة", delta_color="off")
+    col2.metric(label="🔒 أمان البيانات", value="100%", delta="بيانات محلية ومشفرة", delta_color="off")
+    col3.metric(label="🎯 دقة التوزيع", value="0 تكرار", delta="منع الازدواجية تلقائياً", delta_color="off")
+    col4.metric(label="👥 سعة غير محدودة", value="∞", delta="للمستفيدين والبيانات", delta_color="off")
 
 
-# صفحة المميزات
-def features_page():
-    st.markdown("## 🚀 مميزات البرنامج")
+def show_features_section():
+    """يعرض قسم مميزات النظام"""
+    st.markdown("""
+    <h1 style='font-family: Tajawal; color: #333;'>🚀 مميزات نظام \"توزيع\"</h1>
+    <h3 style='font-family: Tajawal; color: #555;'>أدوات قوية مصممة خصيصاً لتلبية احتياجاتكم على الأرض.</h3>
+    """, unsafe_allow_html=True)
 
-    # المميزات الرئيسية
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown(create_feature_card(
-            "📌",
-            "تنظيم ذكي لقوائم المستفيدين",
-            "• إضافة وتعديل وحذف المستفيدين<br>• تصنيف الحالات حسب الأولوية<br>• منع التكرار تلقائيًا"
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("#### 📷 مسح سريع عبر QR Code")
+            st.markdown("""
+            - **توليد تلقائي:** إنشاء رمز QR فريد لكل مستفيد.
+            - **تسليم فوري:** مسح الرمز بكاميرا اللابتوب لتسجيل عملية التسليم في أقل من 5 ثوانٍ.
+            - **تقليل الأخطاء:** ضمان تسليم المساعدة للشخص الصحيح بكل سهولة.
+            """)
 
-        st.markdown(create_feature_card(
-            "📊",
-            "تقارير جاهزة وقابلة للتصدير",
-            "• إحصائيات شاملة ومفصلة<br>• تصدير Excel بكبسة زر<br>• تقارير تفاعلية"
-        ), unsafe_allow_html=True)
-
-        st.markdown(create_feature_card(
-            "🖥️",
-            "واجهة سهلة وباللغة العربية",
-            "• تصميم بسيط وسهل الاستخدام<br>• لا تحتاج تدريب معقد<br>• دعم كامل للغة العربية"
-        ), unsafe_allow_html=True)
-
+        with st.container(border=True):
+            st.markdown("#### 📊 تقارير ذكية وتصدير فوري")
+            st.markdown("""
+            - **تقارير شاملة:** عرض إحصائيات دقيقة حول أعداد المستفيدين والمساعدات الموزعة.
+            - **تصدير بضغطة زر:** تصدير كافة البيانات إلى ملف Excel لمشاركتها مع الجهات المانحة.
+            - **شفافية كاملة:** توفير بيانات موثوقة تدعم اتخاذ القرار.
+            """)
+        st.image("assets/images/example01.png", use_container_width=True)
     with col2:
-        st.markdown(create_feature_card(
-            "📷",
-            "استخدام QR لتسريع التوزيع",
-            "• توليد كود QR لكل مستفيد<br>• مسح سريع وتسجيل فوري<br>• أقل من 5 ثوانٍ لكل عملية!"
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("#### 🔒 يعمل بدون إنترنت (Offline)")
+            st.markdown("""
+            - **استمرارية العمل:** النظام يعمل بشكل كامل على جهازك دون الحاجة لأي اتصال بالإنترنت.
+            - **أمان مطلق:** جميع بيانات المستفيدين محفوظة محلياً على جهازك فقط.
+            - **مثالي للميدان:** مصمم للعمل في الظروف الصعبة التي يندر فيها الاتصال بالشبكة.
+            """)
 
-        st.markdown(create_feature_card(
-            "🔒",
-            "حماية وأمان",
-            "• بيانات محفوظة محليًا<br>• لا إرسال عبر الإنترنت<br>• نسخ احتياطي آمن"
-        ), unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("#### ⚙️ واجهة سهلة باللغة العربية")
+            st.markdown("""
+            - **بساطة الاستخدام:** واجهة مصممة بعناية لتكون سهلة ومباشرة.
+            - **دعم كامل للعربية:** جميع القوائم والنماذج تدعم اللغة العربية بشكل كامل.
+            - **لا حاجة لتدريب:** يمكن لأي شخص البدء باستخدامه خلال دقائق.
+            """)
+        st.image("assets/images/example02.png", use_container_width=True)
 
-        # عرض توضيحي للـ QR
-        st.markdown("### 📱 مثال على كود QR")
-        qr_demo = go.Figure()
-        qr_demo.add_trace(go.Scatter(
-            x=[0, 1, 1, 0, 0],
-            y=[0, 0, 1, 1, 0],
-            mode='lines+markers',
-            fill='toself',
-            fillcolor='rgba(102, 126, 234, 0.1)',
-            line=dict(color='rgb(102, 126, 234)', width=2),
-            name='QR Code Area'
-        ))
-        qr_demo.update_layout(
-            title="مثال على كود QR للمستفيد",
-            showlegend=False,
-            height=300,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        st.plotly_chart(qr_demo, use_container_width=True)
+    st.success("💡 **ميزة الـ QR Code:** هي الميزة الأهم التي تضمن سرعة التوزيع ومنع التكرار نهائياً.")
 
 
-# صفحة الفوائد
-def benefits_page():
-    st.markdown("## 👥 لمن هذا البرنامج؟")
+def show_benefits_section():
+    """يعرض قسم الفوائد والجهات المستهدفة"""
+    st.header("🌍 لمن هذا النظام؟ وكيف يخدم المجتمع؟")
+    st.markdown("أداة واحدة تخدم كافة أطراف العمل الإنساني.")
 
-    target_groups = [
-        ("🏛️", "المؤسسات الخيرية والجمعيات", "تنظيم فعال للمساعدات وضمان الوصول العادل"),
-        ("🤝", "المبادرات الشبابية التطوعية", "أدوات بسيطة لتسهيل العمل التطوعي"),
-        ("💰", "الجهات المانحة", "متابعة دقيقة لتوزيع المساعدات"),
-        ("🏢", "المؤسسات الحكومية", "نظام موثوق لحالات الطوارئ")
-    ]
+    st.markdown("##### الجهات المستفيدة")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.success("🏛️ **المؤسسات والجمعيات الخيرية:** لتنظيم قوائم المستفيدين وضمان التوزيع العادل.")
+        st.warning("🤝 **المبادرات الشبابية والتطوعية:** للحصول على أداة بسيطة ومجانية تسهل عملهم الميداني.")
+    with col2:
+        st.info("💰 **الجهات المانحة والمنظمات الدولية:** لمتابعة دقيقة وشفافة لسير عملية توزيع المساعدات.")
+        st.error("🏢 **المؤسسات الحكومية وهيئات الطوارئ:** لإدارة بيانات المتضررين في الأزمات بسرعة وفعالية.")
 
-    cols = st.columns(2)
-    for i, (icon, title, desc) in enumerate(target_groups):
-        with cols[i % 2]:
-            st.markdown(create_feature_card(icon, title, desc), unsafe_allow_html=True)
-
-    st.markdown("## 🌍 كيف يخدم Tawzi3 المجتمع؟")
-
-    st.markdown("""
-    <div class="benefits-section animate-fade-in">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-            <div style="text-align: center; padding: 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">⚡</div>
-                <h4>تسريع العمليات</h4>
-                <p>يقلل الطوابير والازدحام المزعج</p>
-            </div>
-            <div style="text-align: center; padding: 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">⚖️</div>
-                <h4>ضمان العدالة</h4>
-                <p>يضمن عدالة التوزيع ومنع التكرار</p>
-            </div>
-            <div style="text-align: center; padding: 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">🤝</div>
-                <h4>تحسين التنسيق</h4>
-                <p>يسهل التنسيق بين المؤسسات</p>
-            </div>
-            <div style="text-align: center; padding: 1rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">💪</div>
-                <h4>توفير الجهد</h4>
-                <p>يوفر وقت وجهد كبير على الجميع</p>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("##### الأثر الإيجابي على المجتمع")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown("<h3 style='text-align: center;'>⚖️</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'><strong>تحقيق العدالة</strong></p>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<h3 style='text-align: center;'>🤝</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'><strong>حفظ الكرامة</strong></p>", unsafe_allow_html=True)
+    with col3:
+        st.markdown("<h3 style='text-align: center;'>⏱️</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'><strong>توفير الوقت</strong></p>", unsafe_allow_html=True)
+    with col4:
+        st.markdown("<h3 style='text-align: center;'>📈</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center;'><strong>زيادة الثقة</strong></p>", unsafe_allow_html=True)
 
 
-# صفحة العرض التوضيحي
-def demo_page():
-    st.markdown("## 📱 العرض التوضيحي")
+def show_demo_section():
+    """يعرض قسم العرض التوضيحي التفاعلي"""
+    st.header("🖥️ عرض توضيحي حي")
+    st.markdown("تفاعل مع واجهة مبسطة تحاكي النظام الحقيقي.")
 
-    # محاكاة واجهة البرنامج
-    st.markdown("### 🖥️ واجهة البرنامج")
-
-    tab1, tab2, tab3 = st.tabs(["الصفحة الرئيسية", "إضافة مستفيد", "تقرير"])
+    tab1, tab2, tab3 = st.tabs(["➕ **إضافة مستفيد**", "📊 **التقرير**", "📈 **لوحة التحكم**"])
 
     with tab1:
-        st.markdown("""
-        <div class="feature-card">
-            <h4>📊 لوحة التحكم الرئيسية</h4>
-            <p>عرض سريع لأهم الإحصائيات والعمليات</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("##### نموذج إضافة مستفيد جديد")
+        with st.form("add_beneficiary_form", border=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("الاسم الكامل", placeholder="مثال: محمد أحمد علي")
+                st.text_input("رقم الهوية", placeholder="رقم فريد لتمييز المستفيد")
+                st.number_input("عدد أفراد الأسرة", min_value=1, value=5)
+            with col2:
+                st.selectbox("نوع المساعدة", ["طرد غذائي", "مساعدة نقدية", "ملابس", "أدوية"])
+                st.selectbox("الأولوية", ["عادية", "متوسطة", "عالية", "طارئة"])
+                st.text_input("رقم الهاتف (اختياري)")
 
-        # محاكاة بيانات
-        demo_data = {
-            'عدد المستفيدين': 1250,
-            'المساعدات الموزعة': 890,
-            'في الانتظار': 360,
-            'التكرارات المحظورة': 15
-        }
+            st.text_area("العنوان", placeholder="المدينة - الحي - أقرب معلم")
 
-        cols = st.columns(4)
-        colors = ['#667eea', '#f093fb', '#a8edea', '#ffecd2']
-
-        for i, (key, value) in enumerate(demo_data.items()):
-            with cols[i]:
-                st.metric(key, value)
-
-        # رسم بياني للتوزيع
-        fig = go.Figure(data=[
-            go.Bar(x=list(demo_data.keys()), y=list(demo_data.values()),
-                   marker_color=colors)
-        ])
-        fig.update_layout(
-            title="إحصائيات التوزيع",
-            xaxis_title="الفئة",
-            yaxis_title="العدد",
-            height=400
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            if st.form_submit_button("✅ إضافة المستفيد", use_container_width=True):
+                st.success("تمت إضافة المستفيد بنجاح! سيتم توليد رمز QR له تلقائياً.")
 
     with tab2:
-        st.markdown("### ➕ إضافة مستفيد جديد")
-
-        with st.form("add_beneficiary"):
-            col1, col2 = st.columns(2)
-
-            with col1:
-                name = st.text_input("اسم المستفيد", placeholder="أدخل الاسم الكامل")
-                id_number = st.text_input("رقم الهوية", placeholder="رقم الهوية أو الإقامة")
-                phone = st.text_input("رقم الهاتف", placeholder="+972-XXX-XXXXXX")
-
-            with col2:
-                family_size = st.number_input("عدد أفراد الأسرة", min_value=1, max_value=20, value=5)
-                aid_type = st.selectbox("نوع المساعدة", ["طرد غذائي", "ملابس", "مساعدة نقدية", "دواء"])
-                priority = st.selectbox("الأولوية", ["عادية", "متوسطة", "عالية", "طارئة"])
-
-            address = st.text_area("العنوان", placeholder="العنوان التفصيلي")
-
-            submitted = st.form_submit_button("إضافة المستفيد", use_container_width=True)
-
-            if submitted:
-                st.success("تم إضافة المستفيد بنجاح! ✅")
-                st.info("سيتم توليد كود QR تلقائيًا للمستفيد")
-
-    with tab3:
-        st.markdown("### 📊 تقرير التوزيع")
-
-        # بيانات وهمية للتقرير
+        st.markdown("##### تقرير التوزيع (مثال)")
         report_data = pd.DataFrame({
-            'اسم المستفيد': ['أحمد محمد', 'فاطمة علي', 'محمد أحمد', 'سارة خالد', 'عبد الله يوسف'],
-            'رقم الهوية': ['123456789', '987654321', '456789123', '789123456', '321654987'],
-            'نوع المساعدة': ['طرد غذائي', 'ملابس', 'طرد غذائي', 'مساعدة نقدية', 'دواء'],
-            'تاريخ التوزيع': ['2024-01-15', '2024-01-16', '2024-01-17', '2024-01-18', '2024-01-19'],
-            'الحالة': ['تم التوزيع', 'تم التوزيع', 'تم التوزيع', 'تم التوزيع', 'تم التوزيع']
+            'اسم المستفيد': ['أحمد محمد', 'فاطمة علي', 'خالد يوسف', 'سارة محمود'],
+            'رقم الهوية': ['123456789', '987654321', '456789123', '789123456'],
+            'نوع المساعدة': ['طرد غذائي', 'ملابس', 'مساعدة نقدية', 'طرد غذائي'],
+            'تاريخ التسليم': ['2024-07-10', '2024-07-11', '2024-07-12', '2024-07-13'],
         })
-
         st.dataframe(report_data, use_container_width=True)
 
-        # زر التصدير
-        csv = report_data.to_csv(index=False)
+        csv = report_data.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 تصدير كـ Excel",
+            label="📥 تصدير التقرير (Excel)",
             data=csv,
-            file_name='tawzi3_report.csv',
-            mime='text/csv'
+            file_name='tawzi3_report_demo.csv',
+            mime='text/csv',
+            use_container_width=True
         )
 
+    with tab3:
+        st.markdown("##### لوحة التحكم الرئيسية (مثال)")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("إجمالي المستفيدين", "1,250")
+        col2.metric("المساعدات الموزعة", "890")
+        col3.metric("المساعدات المتبقية", "360")
 
-# صفحة التواصل
-def contact_page():
-    st.markdown("## 📞 تواصل معنا")
+        chart_data = pd.DataFrame({
+            'الفئة': ["المساعدات الموزعة", "المساعدات المتبقية"],
+            'العدد': [890, 360],
+        })
+
+        # السطر الذي تم تعديله هنا
+        st.bar_chart(chart_data, x='الفئة', y='العدد')
+
+
+def show_contact_section():
+    """يعرض قسم التواصل وطلب النسخة"""
+    st.markdown("""
+    <h2 style='font-family: Tajawal; color: #333;'>📞 تواصل معنا</h1>
+    <h4 style='font-family: Tajawal; color: #333;'>نحن هنا للإجابة على استفساراتكم ومساعدتكم.</h3>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("""
-        <div class="form-container">
-            <h3>📧 معلومات التواصل</h3>
-            <p><strong>📧 البريد الإلكتروني:</strong> tawzi3.app@gmail.com</p>
-            <p><strong>📱 واتساب:</strong> +972-XXX-XXXXXX</p>
-            <p><strong>📍 الموقع:</strong> غزة - فلسطين</p>
-            <p><strong>🌐 وسائل التواصل:</strong></p>
-            <p>• فيسبوك: /Tawzi3App</p>
-            <p>• تليجرام: @Tawzi3App</p>
-            <p>• لينكدإن: /company/tawzi3</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col2:
-        st.markdown("### 📥 اطلب نسخة تجريبية")
+        st.markdown("#### 📥 اطلب نسختك التجريبية المجانية")
 
         with st.form("trial_request"):
             organization = st.text_input("اسم المؤسسة", placeholder="اسم المؤسسة أو الجمعية")
@@ -488,137 +237,62 @@ def contact_page():
             submitted = st.form_submit_button("طلب النسخة التجريبية", use_container_width=True)
 
             if submitted:
-                st.success("تم إرسال طلبك بنجاح! سنتواصل معك خلال 24 ساعة ✅")
+                add_data([organization, contact_name, email, phone, org_type, beneficiaries, message])
+                st.success("شكراً لك! تم استلام طلبك بنجاح. سنتواصل معك في أقرب فرصة.")
                 st.balloons()
-
-
-# صفحة المطور
-def developer_page():
-    st.markdown("## 🧑‍💻 من المطوّر؟")
-
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        st.markdown("""
-        <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    border-radius: 15px; color: white; margin-bottom: 2rem;">
-            <div style="font-size: 5rem; margin-bottom: 1rem;">👨‍💻</div>
-            <h3>إبراهيم صالحة</h3>
-            <p>مطوّر تطبيقات سطح المكتب</p>
-            <p>📍 غزة - فلسطين</p>
-        </div>
-        """, unsafe_allow_html=True)
 
     with col2:
         st.markdown("""
-        <div class="feature-card">
-            <h3>💚 رسالة من المطور</h3>
-            <p style="font-size: 1.1rem; line-height: 1.8;">
-            أنا إبراهيم صالحة، مطوّر تطبيقات سطح مكتب من غزة. 
-            أعمل على تطوير أدوات بسيطة، لكنها فعّالة، لحل مشاكل واقعية في مجتمعنا.
-            </p>
-            <p style="font-size: 1.1rem; line-height: 1.8;">
-            <strong>Tawzi3</strong> هو مشروعي لخدمة الناس، وأتمنى أن أسمع ملاحظاتكم 
-            واقتراحاتكم للتطوير. هدفي هو جعل عملية توزيع المساعدات أكثر كرامة وفعالية.
-            </p>
+        <div class="form-container">
+            <h3>📧 معلومات التواصل</h3>
+            <p><strong>📧 البريد الإلكتروني:</strong> tawzi3.app@gmail.com</p>
+            <p><strong>📱 واتساب:</strong> +972-XXX-XXXXXX</p>
+            <p><strong>📍 الموقع:</strong> غزة - فلسطين</p>
+            <p><strong>🌐 وسائل التواصل:</strong></p>
+            <p>• فيسبوك: /Tawzi3App</p>
+            <p>• تليجرام: @Tawzi3App</p>
         </div>
         """, unsafe_allow_html=True)
 
-    # قسم التحديثات القادمة
-    st.markdown("## 🔄 التحديثات القادمة")
 
-    updates = [
-        ("🌐", "دعم التوزيع عبر الشبكة", "ربط عدة أجهزة في شبكة واحدة"),
-        ("👥", "نظام صلاحيات المستخدمين", "إدارة متقدمة للمستخدمين والأدوار"),
-        ("☁️", "نسخة سحابية", "عند توفر الإنترنت المستقر"),
-        ("📊", "تحليلات متقدمة", "تقارير ذكية ومؤشرات الأداء"),
-        ("🔔", "نظام الإشعارات", "تنبيهات للمواعيد والأحداث المهمة"),
-        ("🌍", "دعم لغات متعددة", "الإنجليزية والفرنسية بالإضافة للعربية")
-    ]
+# App
+st.logo(r"assets/images/logo.png", size="large")
+st.markdown("""
+<h1 style='font-family: Tajawal; color: #333;'>Tawzi3 - نظام توزيع</h1>
+<h3 style='font-family: Tajawal; color: #555;'>نظام ذكي لتوزيع المساعدات بسرعة ودقة عبر تقنية QR</h3>
+""", unsafe_allow_html=True)
 
-    cols = st.columns(2)
-    for i, (icon, title, desc) in enumerate(updates):
-        with cols[i % 2]:
-            st.markdown(f"""
-            <div class="feature-card">
-                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                    <div style="font-size: 2rem; margin-left: 1rem;">{icon}</div>
-                    <div>
-                        <h4 style="margin: 0; color: #667eea;">{title}</h4>
-                        <p style="margin: 0.5rem 0 0 0; color: #666;">{desc}</p>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+# main section
+show_main_section()
 
+st.write("")
+st.divider()
+st.write("")
 
-# التنقل الرئيسي
-def main():
-    # القائمة الجانبية
-    st.sidebar.markdown("""
-    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 15px; color: white; margin-bottom: 2rem;">
-        <h2>🟩 Tawzi3</h2>
-        <p>نظام توزيع المساعدات الذكي</p>
-    </div>
-    """, unsafe_allow_html=True)
+# features section
+show_features_section()
 
-    # قائمة التنقل
-    page = st.sidebar.selectbox(
-        "اختر الصفحة",
-        ["🏠 الصفحة الرئيسية", "🚀 المميزات", "🌍 الفوائد", "📱 العرض التوضيحي", "📞 تواصل معنا", "🧑‍💻 المطور"],
-        index=0
-    )
+st.write("")
+st.divider()
+st.write("")
 
-    # معلومات سريعة في الشريط الجانبي
-    st.sidebar.markdown("""
-    <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 10px; margin: 1rem 0;">
-        <h4 style="color: white; margin-bottom: 1rem;">📊 إحصائيات سريعة</h4>
-        <p style="color: white; margin: 0.5rem 0;">⚡ 5 ثوانٍ لكل عملية</p>
-        <p style="color: white; margin: 0.5rem 0;">🔒 100% أمان البيانات</p>
-        <p style="color: white; margin: 0.5rem 0;">📱 عمل بدون إنترنت</p>
-        <p style="color: white; margin: 0.5rem 0;">🆓 نسخة تجريبية مجانية</p>
-    </div>
-    """, unsafe_allow_html=True)
+# benefits section
+show_benefits_section()
 
-    # رابط سريع للتحميل
-    st.sidebar.markdown("""
-    <div style="text-align: center; margin: 2rem 0;">
-        <a href="#" class="custom-button">
-            📥 اطلب نسخة تجريبية
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
+st.write("")
+st.divider()
+st.write("")
 
-    # عرض الصفحة المختارة
-    if page == "🏠 الصفحة الرئيسية":
-        main_page()
-    elif page == "🚀 المميزات":
-        features_page()
-    elif page == "🌍 الفوائد":
-        benefits_page()
-    elif page == "📱 العرض التوضيحي":
-        demo_page()
-    elif page == "📞 تواصل معنا":
-        contact_page()
-    elif page == "🧑‍💻 المطور":
-        developer_page()
+# contact section
+show_contact_section()
 
-    # الفوتر
-    st.markdown("""
-    <div class="footer">
-        <h3>🟩 Tawzi3 - نظام توزيع المساعدات الذكي</h3>
-        <p>طُور بـ ❤️ في غزة - فلسطين</p>
-        <p style="margin-top: 1rem;">
-            📧 tawzi3.app@gmail.com | 📱 +972-XXX-XXXXXX
-        </p>
-        <p style="margin-top: 1rem; opacity: 0.8;">
-            © 2024 Tawzi3 - جميع الحقوق محفوظة
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+st.write("")
+st.divider()
 
-
-# تشغيل التطبيق
-if __name__ == "__main__":
-    main()
+# الخاتمة
+st.markdown("""
+<div style="text-align: center; color: grey;">
+    <p>طُوّر بـ ❤️ في غزة - فلسطين</p>
+    <p>© 2025 نظام "توزيع" | جميع الحقوق محفوظة</p>
+</div>
+""", unsafe_allow_html=True)
