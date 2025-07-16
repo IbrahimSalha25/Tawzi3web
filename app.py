@@ -6,7 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # Authenticate and connect to Google Sheets
 def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
-    # st.write(creds_json, spreadsheet_name, sheet_name , sep=" | ")
+    st.write(creds_json, spreadsheet_name, sheet_name , sep=" | ")
     scope = ["https://spreadsheets.google.com/feeds",
              'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file",
