@@ -226,7 +226,6 @@ def show_contact_section():
     """يعرض قسم التواصل وطلب النسخة"""
     st.markdown("""
     <h2 style='font-family: Tajawal; color: #333;'>📞 تواصل معنا</h1>
-    <h4 style='font-family: Tajawal; color: #333;'>نحن هنا للإجابة على استفساراتكم ومساعدتكم.</h3>
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -257,6 +256,8 @@ def show_contact_section():
                 st.balloons()
 
     with col2:
+        st.markdown("#### نحن هنا للإجابة على استفساراتكم ومساعدتكم.")
+
         st.warning("""
                     البريد الإلكتروني: ibrahimsalha19@gmail.com\n
                     المطور: إبراهيم عاطف محمد صالحة\n
