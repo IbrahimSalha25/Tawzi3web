@@ -13,7 +13,7 @@ def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
              'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file",
              "https://www.googleapis.com/auth/drive"]
-    if "googlesheet" in st.secrets:
+    if "googlesheet" in st.secrets.keys():
         credentials = service_account.Credentials.from_service_account_info(
             st.secrets["googlesheet"],
             scopes=scope
