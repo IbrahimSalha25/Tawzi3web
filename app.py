@@ -8,21 +8,19 @@ from google.oauth2 import service_account  # Import the more secure library
 
 # Authenticate and connect to Google Sheets
 def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
-    st.write(creds_json, spreadsheet_name, sheet_name, sep=" | ")
+    # st.write(creds_json, spreadsheet_name, sheet_name, sep=" | ")
     scope = ["https://spreadsheets.google.com/feeds",
              'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file",
              "https://www.googleapis.com/auth/drive"]
     if "googlesheet" in st.secrets:
-        secrets_content = st.secrets["googlesheet"]
         credentials = service_account.Credentials.from_service_account_info(
             st.secrets["googlesheet"],
             scopes=scope
         )
     else:
-        credentials = ServiceAccountCredentials.from_json_keyfile_name(st.secrets["google_sheet"], scope)
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scope)
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scope)
     client = gspread.authorize(credentials)
     spreadsheet = client.open(spreadsheet_name)
     return spreadsheet.worksheet(sheet_name)  # Access specific sheet by name
