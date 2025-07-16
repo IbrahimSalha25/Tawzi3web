@@ -6,6 +6,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # Authenticate and connect to Google Sheets
 def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
+    # st.write(creds_json, spreadsheet_name, sheet_name , sep=" | ")
     scope = ["https://spreadsheets.google.com/feeds",
              'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file",
@@ -24,12 +25,14 @@ SHEET_NAME = 'sheet1'
 # Connect to the Google Sheet
 try:
     # Cloud (Streamlit secrets)
-    CREDENTIALS_FILE = st.secrets["google sheet"]
+    CREDENTIALS_FILE = st.secrets["googlesheet"]
     sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
 except Exception:
     # Local file
     CREDENTIALS_FILE = 'tawzi3googlesheetname.json'
     sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+
+
 
 
 def read_data():
@@ -114,10 +117,10 @@ def show_features_section():
         with st.container(border=True):
             st.markdown("#### ⚙️ واجهة سهلة باللغة العربية")
             st.markdown("""
-            - **بساطة الاستخدام:** واجهة مصممة بعناية لتكون سهلة ومباشرة.
-            - **دعم كامل للعربية:** جميع القوائم والنماذج تدعم اللغة العربية بشكل كامل.
-            - **لا حاجة لتدريب:** يمكن لأي شخص البدء باستخدامه خلال دقائق.
-            """)
+        - **بساطة الاستخدام:** واجهة مصممة بعناية لتكون سهلة ومباشرة.            
+           - **دعم كامل للعربية:** جميع القوائم والنماذج تدعم اللغة العربية بشكل كامل.        
+           - **لا حاجة لتدريب:** يمكن لأي شخص البدء باستخدامه خلال دقائق.         
+            """, width=500)
         st.image("assets/images/example02.png", use_container_width=True)
 
     st.success("💡 **ميزة الـ QR Code:** هي الميزة الأهم التي تضمن سرعة التوزيع ومنع التكرار نهائياً.")
@@ -225,7 +228,7 @@ def show_contact_section():
     with col1:
         st.markdown("#### 📥 اطلب نسختك التجريبية المجانية")
 
-        with st.form("trial_request"):
+        with st.form("trial_request", enter_to_submit=False):
             organization = st.text_input("اسم المؤسسة", placeholder="اسم المؤسسة أو الجمعية")
             contact_name = st.text_input("اسم المسؤول", placeholder="اسم الشخص المسؤول")
             email = st.text_input("البريد الإلكتروني", placeholder="email@example.com")
@@ -248,10 +251,11 @@ def show_contact_section():
                 st.balloons()
 
     with col2:
-        st.warning("""البريد الإلكتروني: ibrahimsalha19@gmail.com
-                    المطور: إبراهيم عاطف محمد صالحة
-                    جوال : 0595451125
-                    الموقع: غزة، فلسطين
+        st.warning("""
+                    البريد الإلكتروني: ibrahimsalha19@gmail.com\n
+                    المطور: إبراهيم عاطف محمد صالحة\n
+                    جوال : 0595451125\n
+                    الموقع: غزة، فلسطين\n
                     رسالتنا: نهدف إلى توفير هذا النظام بشكل مجاني أو بتكلفة رمزية للمبادرات والجمعيات غير الربحية في غزة، للمساهمة في تخفيف الأعباء وتسهيل أعمال الخير.
                     """)
 
