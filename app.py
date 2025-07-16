@@ -2,15 +2,25 @@ import streamlit as st
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import os
+from google.oauth2 import service_account  # Import the more secure library
 
 
 # Authenticate and connect to Google Sheets
 def connect_to_gsheet(creds_json, spreadsheet_name, sheet_name):
-    st.write(creds_json, spreadsheet_name, sheet_name , sep=" | ")
+    st.write(creds_json, spreadsheet_name, sheet_name, sep=" | ")
     scope = ["https://spreadsheets.google.com/feeds",
              'https://www.googleapis.com/auth/spreadsheets',
              "https://www.googleapis.com/auth/drive.file",
              "https://www.googleapis.com/auth/drive"]
+    if "googlesheet" in st.secrets:
+        secrets_content = st.secrets["googlesheet"]
+        credentials = service_account.Credentials.from_service_account_info(
+            st.secrets["googlesheet"],
+            scopes=scope
+        )
+    else:
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(st.secrets["google_sheet"], scope)
 
     credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scope)
     client = gspread.authorize(credentials)
@@ -31,8 +41,6 @@ except Exception:
     # Local file
     CREDENTIALS_FILE = 'tawzi3googlesheetname.json'
     sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
-
-
 
 
 def read_data():
